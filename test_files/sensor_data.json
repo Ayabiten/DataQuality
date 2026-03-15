@@ -1,0 +1,22 @@
+{
+  "metadata": {
+    "version": "1.0",
+    "source": "sensors"
+  },
+  "data": [
+    {
+      "sensor_id": "S1",
+      "readings": [
+        {
+          "time": "12:00",
+          "val": 22.1
+        },
+        {
+          "time": "12:01",
+          "val": "N/A"
+        }
+      ]
+    }
+  ],
+  "errors": null
+}

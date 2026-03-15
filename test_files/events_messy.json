@@ -1,0 +1,21 @@
+[
+  {
+    "id": 101,
+    "event": "click",
+    "timestamp": "2023-01-01T10:00Z"
+  },
+  {
+    "id": 102,
+    "event": "hover"
+  },
+  {
+    "id": 103,
+    "event": "click",
+    "timestamp": "2023-01-01T10:05Z",
+    "extra_key": "hidden"
+  },
+  {
+    "id": "error",
+    "event": "click"
+  }
+]

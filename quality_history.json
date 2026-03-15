@@ -1,0 +1,44 @@
+{
+  "encoding_issue.csv": {
+    "rows": 3,
+    "nulls": 0,
+    "size": 0.0001,
+    "timestamp": "2026-03-15 15:49:03"
+  },
+  "missing_values.csv": {
+    "rows": 4,
+    "nulls": 4,
+    "size": 0.0001,
+    "timestamp": "2026-03-15 15:49:03"
+  },
+  "mixed_delimiters.csv": {
+    "rows": 3,
+    "nulls": 0,
+    "size": 0.0001,
+    "timestamp": "2026-03-15 15:49:03"
+  },
+  "multiline.csv": {
+    "rows": 3,
+    "nulls": 0,
+    "size": 0.0002,
+    "timestamp": "2026-03-15 15:49:03"
+  },
+  "perfect.csv": {
+    "rows": 3,
+    "nulls": 0,
+    "size": 0.0001,
+    "timestamp": "2026-03-15 15:49:03"
+  },
+  "structural_issues.csv": {
+    "rows": 3,
+    "nulls": 1,
+    "size": 0.0001,
+    "timestamp": "2026-03-15 15:49:03"
+  },
+  "type_mismatch.csv": {
+    "rows": 4,
+    "nulls": 0,
+    "size": 0.0001,
+    "timestamp": "2026-03-15 15:49:03"
+  }
+}
