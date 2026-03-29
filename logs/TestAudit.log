@@ -1,0 +1,20 @@
+2026-03-29 23:58:06,225 - TestAudit - INFO - Starting Scenario: File Audit for test_files/structural_issues.csv
+2026-03-29 23:58:06,225 - TestAudit - INFO - Starting Scenario: Request to https://api.example.com/v1/data
+2026-03-29 23:58:06,225 - TestAudit - ERROR - [2026-03-29 23:58:06] ERROR: RequestError | POST https://api.example.com/v1/data | Status: None | Msg: Failed to connect to host
+2026-03-29 23:58:06,225 - TestAudit - ERROR - [2026-03-29 23:58:06] ERROR: FileError | File: type_mismatch.csv (CSV) | Error: Type Mismatch | Row: 10 | Found string 'N/A' in numeric column 'id'
+2026-03-29 23:58:06,226 - TestAudit - INFO - Structured logs exported to test_logs\TestAudit_20260329_235806.json
+2026-03-29 23:59:15,742 - TestAudit - INFO - Starting Scenario: File Audit for test_files/structural_issues.csv
+2026-03-29 23:59:15,746 - TestAudit - INFO - Starting Scenario: Request to https://api.example.com/v1/data
+2026-03-29 23:59:15,746 - TestAudit - ERROR - [2026-03-29 23:59:15] ERROR: RequestError | POST https://api.example.com/v1/data | Status: None | Msg: Failed to connect to host
+2026-03-29 23:59:15,747 - TestAudit - ERROR - [2026-03-29 23:59:15] ERROR: FileError | File: type_mismatch.csv (CSV) | Error: Type Mismatch | Row: 10 | Found string 'N/A' in numeric column 'id'
+2026-03-29 23:59:15,747 - TestAudit - INFO - Audit session finalized. Full log available at: D:\01.CodingProjects\DataQuality\test_logs\TestAudit.log
+2026-03-29 23:59:49,667 - TestAudit - INFO - Starting Scenario: File Audit for test_files/structural_issues.csv
+2026-03-29 23:59:49,668 - TestAudit - INFO - Starting Scenario: Request to https://api.example.com/v1/data
+2026-03-29 23:59:49,668 - TestAudit - ERROR - [2026-03-29 23:59:49] ERROR: RequestError | POST https://api.example.com/v1/data | Status: None | Msg: Failed to connect to host
+2026-03-29 23:59:49,668 - TestAudit - ERROR - [2026-03-29 23:59:49] ERROR: FileError | File: type_mismatch.csv (CSV) | Error: Type Mismatch | Row: 10 | Found string 'N/A' in numeric column 'id'
+2026-03-29 23:59:49,669 - TestAudit - INFO - Audit session finalized. Full log available at: D:\01.CodingProjects\DataQuality\test_logs\TestAudit.log
+2026-03-30 00:00:17,852 - TestAudit - INFO - Starting Scenario: File Audit for test_files/structural_issues.csv
+2026-03-30 00:00:17,853 - TestAudit - INFO - Starting Scenario: Request to https://api.example.com/v1/data
+2026-03-30 00:00:17,853 - TestAudit - ERROR - [2026-03-30 00:00:17] ERROR: RequestError | POST https://api.example.com/v1/data | Status: None | Msg: Failed to connect to host
+2026-03-30 00:00:17,853 - TestAudit - ERROR - [2026-03-30 00:00:17] ERROR: FileError | File: type_mismatch.csv (CSV) | Error: Type Mismatch | Row: 10 | Found string 'N/A' in numeric column 'id'
+2026-03-30 00:00:17,853 - TestAudit - INFO - Audit session finalized. Full log available at: D:\01.CodingProjects\DataQuality\test_logs\TestAudit.log

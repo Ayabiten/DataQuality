@@ -1,0 +1,2 @@
+timestamp,level,file_path,file_type,error_type,error_message,row,column,invalid_value,context
+2026-03-29 23:58:06,ERROR,test_files/type_mismatch.csv,CSV,Type Mismatch,Found string 'N/A' in numeric column 'id',10,,,

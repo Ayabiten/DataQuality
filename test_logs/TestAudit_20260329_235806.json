@@ -1,0 +1,29 @@
+{
+    "requests": [
+        {
+            "timestamp": "2026-03-29 23:58:06",
+            "level": "ERROR",
+            "url": "https://api.example.com/v1/data",
+            "method": "POST",
+            "status_code": null,
+            "error_message": "Failed to connect to host",
+            "request_payload": null,
+            "response_content": null,
+            "headers": null
+        }
+    ],
+    "files": [
+        {
+            "timestamp": "2026-03-29 23:58:06",
+            "level": "ERROR",
+            "file_path": "test_files/type_mismatch.csv",
+            "file_type": "CSV",
+            "error_type": "Type Mismatch",
+            "error_message": "Found string 'N/A' in numeric column 'id'",
+            "row": 10,
+            "column": null,
+            "invalid_value": null,
+            "context": null
+        }
+    ]
+}
