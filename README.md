@@ -1,43 +1,76 @@
-# Data Quality Audit Engine
+# 🛡️ DataQuality Audit Toolkit
 
-A Python-based suite of high-precision diagnostic tools for auditing data integrity and compliance across common file formats.
-
-## 🔐 Data Security
-
-As a localized auditing tool, Data Quality Audit ensures data privacy by design:
-- **Local-Only Processing**: No data is transmitted externally. All audits are conducted in strict isolation on the host machine.
-- **Audit Logging**: Comprehensive execution logs provide traceability for every diagnostic run.
-
-## 🛡️ Role-Based Utilization (RBAC)
-
-The suite is designed for specific organizational functions:
-- **Data Auditor**: Executes the full diagnostic suite to identify anomalies and missing values.
-- **Data Scientist**: Leverages the distribution analysis modules to validate dataset readiness for modeling.
-- **Compliance Officer**: Reviews generated PDF/HTML reports for regulatory verification.
+A professional, modular, and robust toolkit designed to **analyze, heal, and monitor** the quality of various data formats (CSV, Excel, JSON). It bridges the gap between messy raw data and structured analytical storage, ensuring your data pipelines remain reliable and your insights accurate.
 
 ---
 
-## 🔍 Technical Deep Dive
+## 🏗️ Project Architecture
 
-### Multi-Format Parsing Engine
-The engine utilizes specialized handlers for different structural complexities:
-- **CSV Auditor**: High-speed schema validation using `pandas` and `numpy` for flat file integrity.
-- **Excel Auditor**: Deep-scan of multi-sheet workbooks, including cell-level metadata and formula validation.
-- **JSON Auditor**: Recursive validation of nested structures, ensuring schema consistency across semi-structured data.
+This toolkit is built on a layered architecture that handles everything from raw file ingestion to premium visual reporting.
 
-### Diagnostic Capabilities
-- **Uniqueness & Completeness**: Automated identification of duplicate records and sparse columns.
-- **Distribution Analysis**: Statistical profiling to detect outliers and skewness.
-- **Referential Integrity**: Checks for broken relations across multiple files (if applicable).
+### 1. Unified Audit Layer
+*   **[`main.py`](./main.py)**: The central **Command Center**. Auto-detects file types and orchestrates the entire audit, reporting, and visualization workflow.
+*   **[`core`](./core/)**: The **Brain** of the toolkit. Contains the `BaseQualityAudit` engine which ensures consistent "Deep Profiling" (Format detection, Placeholder identification, Scoring) across all formats.
 
-## 🚀 How to Run
+### 2. Format-Specific Modules
+*   **[`csv_data_quality`](./csv_data_quality/)**: Specialized logic for CSVs, featuring the `RobustCSVReader` for healing unquoted multiline cells and inconsistent columns. Supports **chunked streaming**.
+*   **[`excel_data_quality`](./excel_data_quality/)**: Sheet-aware auditing for Microsoft Excel workbooks with deep profiling for every sheet.
+*   **[`json_data_quality`](./json_data_quality/)**: Schema validation and deep-audit for semi-structured JSON data via flattening.
 
-1. **Prerequisites**: Ensure you have Python and Jupyter installed.
-2. **Launch Notebooks**:
-   ```bash
-   jupyter notebook
-   ```
-3. **Select Module**: Open the relevant `.ipynb` for CSV, Excel, or JSON auditing and follow the cell-by-cell instructions.
+### 3. Data Storage & Schema Layer
+*   **[`database`](./database/)**: The `DataModel` class automates the ingestion of complex data into SQLite. Features **recursive flattening**, **list exploding**, and **explicit transaction management**.
+
+### 4. Observability & Logging
+*   **[`dq_logging`](./dq_logging/)**: A centralized logging system that tracks every error, HTTP request failure, and structural anomaly.
 
 ---
-*Data Quality: Clean data, clear insights.*
+
+## 🚀 Key Features
+
+-   ✅ **Unified CLI**: Audit any file with a single command.
+-   📊 **Premium Visualizations**: Automated generation of Null Heatmaps, Type Distributions, and Quality Bar Charts.
+-   ⚡ **Scalable Ingestion**: Refactored for streaming to handle multi-gigabyte files efficiently.
+-   🧠 **Deep Data Profiling**: Shared detection engine for Emails, URLs, Phones, IPv4, and Credit Cards across all formats.
+-   🛡️ **Data Integrity**: Explicit database transactions ensure that ingestion into SQLite is atomic and safe.
+
+---
+
+## 📂 Directory Structure
+
+```text
+DataQuality/
+├── main.py                 # UNIFIED CLI ENTRY POINT
+├── 📁 core/                # SHARED ENGINE (Scoring, Visuals, Patterns)
+├── 📁 csv_data_quality/    # CSV Specialized logic & Robust Reader
+├── 📁 database/             # Relational storage (DataModel)
+├── 📁 dq_logging/           # Centralized logging & error tracking
+├── 📁 excel_data_quality/   # Excel Specialized logic
+├── 📁 json_data_quality/    # JSON Specialized logic
+└── 📁 test_files/           # Edge-case datasets
+```
+
+---
+
+## 🛠️ Technology Stack
+
+-   **Language**: Python 3.10+
+-   **Core**: `pandas`, `numpy`, `sqlite3`
+-   **Visualization**: `matplotlib`, `seaborn`
+-   **Utilities**: `chardet` (encoding), `openpyxl` (excel), `thefuzz` (fuzzy matching)
+
+---
+
+## 📖 Getting Started
+
+1.  **Install Dependencies**:
+    ```bash
+    pip install -r requirements.txt
+    ```
+2.  **Run a Unified Audit**:
+    ```bash
+    python main.py path/to/your/data.csv --visualize
+    ```
+3.  **Check Results**: All reports and charts will be generated in the `audit_reports/` directory.
+
+---
+*Created by Antigravity - Advanced Agentic Coding Assistant*

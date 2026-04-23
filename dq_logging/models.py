@@ -55,6 +55,16 @@ class FileErrorLog(BaseLog):
         if self.column: location += f", Col: {self.column}"
         return f"{base} | File: {file_name} ({self.file_type}) | Error: {self.error_type} | {location} | {self.error_message}"
 
+@dataclass
+class GenericLog(BaseLog):
+    """Generic status or informational log."""
+    message: str = ""
+    category: str = "GENERAL"
+
+    def __str__(self) -> str:
+        base = super().__str__()
+        return f"{base} | {self.message}"
+
 class DataQualityLogger:
     """Central Logger for Data Quality Audits and Requests."""
     
@@ -63,6 +73,7 @@ class DataQualityLogger:
         self.log_dir = log_dir
         self.request_logs: List[RequestErrorLog] = []
         self.file_logs: List[FileErrorLog] = []
+        self.general_logs: List[GenericLog] = []
         
         # Setup standard logging
         self.std_logger = logging.getLogger(log_name)
@@ -88,18 +99,41 @@ class DataQualityLogger:
             self.log_path = None
 
     def log_request(self, **kwargs):
-        """Record a request-related error."""
+        """Record a request-related event (Error, Success, etc.)."""
         log = RequestErrorLog(**kwargs)
         self.request_logs.append(log)
-        self.std_logger.error(str(log))
+        self._dispatch_log(log)
         return log
 
     def log_file_error(self, **kwargs):
-        """Record a file processing error."""
+        """Record a file processing event."""
         log = FileErrorLog(**kwargs)
         self.file_logs.append(log)
-        self.std_logger.error(str(log))
+        self._dispatch_log(log)
         return log
+
+    def log_generic(self, message: str, level: str = "INFO", category: str = "GENERAL"):
+        """Record a general status message."""
+        log = GenericLog(message=message, level=level, category=category)
+        self.general_logs.append(log)
+        self._dispatch_log(log)
+        return log
+
+    # Success/Info/Status Helpers
+    def info(self, message: str): return self.log_generic(message, "INFO", "INFO")
+    def success(self, message: str): return self.log_generic(message, "INFO", "SUCCESS")
+    def warning(self, message: str): return self.log_generic(message, "WARNING", "WARNING")
+    def error(self, message: str): return self.log_generic(message, "ERROR", "ERROR")
+
+    def _dispatch_log(self, log):
+        """Dispatches the log to the standard internal logger with correct level."""
+        msg = str(log)
+        if log.level == "ERROR":
+            self.std_logger.error(msg)
+        elif log.level == "WARNING":
+            self.std_logger.warning(msg)
+        else:
+            self.std_logger.info(msg)
 
     def log_exception(self, file_path: Optional[str] = None, error_type: str = "UnhandledException"):
         """Convenience method to log a caught exception."""
@@ -134,6 +168,58 @@ class DataQualityLogger:
         """Finalizes the .log file and provides the path."""
         self.std_logger.info(f"Audit session finalized. Full log available at: {self.log_path}")
         return self.log_path
+
+    def get_df(self, log_type: str = 'file') -> 'pd.DataFrame':
+        """Returns logs as a Pandas DataFrame."""
+        import pandas as pd
+        if log_type == 'file': data = self.file_logs
+        elif log_type == 'request': data = self.request_logs
+        else: data = self.general_logs
+        
+        if not data:
+            return pd.DataFrame()
+        return pd.DataFrame([asdict(l) for l in data])
+
+    def export_json(self, file_path: str):
+        """Exports all logs to a JSON file."""
+        all_logs = {
+            "request_logs": [asdict(l) for l in self.request_logs],
+            "file_logs": [asdict(l) for l in self.file_logs]
+        }
+        with open(file_path, 'w') as f:
+            json.dump(all_logs, f, indent=4)
+        self.std_logger.info(f"Logs exported to JSON: {file_path}")
+
+    def get_summary(self) -> Dict[str, Any]:
+        """Returns a summary of the logging session."""
+        summary = {
+            "session_name": self.log_name,
+            "total_request_logs": len(self.request_logs),
+            "total_file_logs": len(self.file_logs),
+            "total_general_logs": len(self.general_logs),
+            "file_error_types": list(set(log.error_type for log in self.file_logs)),
+            "log_file": self.log_path,
+            "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }
+        return summary
+
+    def log_to_db(self, db, table_name_prefix: str = "audit"):
+        """Logs all collected errors to a database table using DataModel."""
+        df_file = self.get_df('file')
+        df_req = self.get_df('request')
+        if not df_file.empty:
+            db.create(f"{table_name_prefix}_file_errors", df_file)
+        if not df_req.empty:
+            db.create(f"{table_name_prefix}_request_errors", df_req)
+        self.std_logger.info(f"Logs synced to database with prefix: {table_name_prefix}")
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_type:
+            self.log_exception(error_type="SessionFatalError")
+        self.finalize_log()
 
     def __repr__(self) -> str:
         return f"<DataQualityLogger: Session '{self.log_name}' active. File output: logs/{self.log_name}.log>"

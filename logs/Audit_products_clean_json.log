@@ -1,0 +1,9 @@
+2026-04-24 00:14:30,038 - Audit_products_clean_json - ERROR - [2026-04-24 00:14:30] ERROR: FileError | File: products_clean.json (JSON) | Error: AuditFatalError |  | Traceback (most recent call last):
+  File "D:\01.CodingProjects\DataQuality\main.py", line 48, in main
+    report = audit.execute_full_audit()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\01.CodingProjects\DataQuality\json_data_quality\json_quality_audit.py", line 69, in execute_full_audit
+    last_mod = datetime.datetime.fromtimestamp(stats.st_mtime).strftime('%Y-%m-%d %H:%M:%S')
+               ^^^^^^^^
+NameError: name 'datetime' is not defined. Did you forget to import 'datetime'
+

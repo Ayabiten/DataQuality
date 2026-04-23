@@ -2,63 +2,84 @@ import pandas as pd
 import numpy as np
 import os
 import datetime
+import sys
 from typing import Dict, List, Any, Optional
+
+# Add parent directory to sys.path to ensure core is found
+parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if parent_dir not in sys.path:
+    sys.path.append(parent_dir)
+
 from dq_logging import DataQualityLogger
+from core.base_audit import BaseQualityAudit
+from core.models import AuditSummary, ColumnProfile
 
-class ExcelSheetProfile:
-    """
-    A Model class representing the data quality profile of a specific Excel sheet.
-    """
-    def __init__(self, sheet_name, total_rows, total_cols, quality_metrics, statistical_summary=None, placeholders=None):
-        self.sheet_name = sheet_name
-        self.total_rows = total_rows
-        self.total_cols = total_cols
-        self.quality_metrics = quality_metrics # Pandas DataFrame or List of Dicts
-        self.statistical_summary = statistical_summary
-        self.placeholders = placeholders
-
-class ExcelQualityAudit:
+class ExcelQualityAudit(BaseQualityAudit):
     """
     Main Model for Excel Workbook Data Quality Auditing.
-    Analyzes multiple sheets and tracks metadata.
+    Inherits from BaseQualityAudit to provide deep profiling for each sheet.
     """
     
     def __init__(self, file_path: str, logger: Optional[DataQualityLogger] = None):
-        """
-        Initialize the Excel Audit Model.
-        """
+        super().__init__(logger=logger)
         self.file_path = file_path
         self.logger = logger or DataQualityLogger(log_name="ExcelAudit", log_to_file=False)
         self.workbook_metadata: Dict[str, Any] = {}
 
-    def execute_workbook_audit(self):
+    def execute_full_audit(self):
         """
         Performs a full audit of all sheets in the Excel workbook.
         """
-        # Step 1: Collect Metadata
-        self.check_workspace_metadata()
+        self.check_workbook_metadata()
         
         workbook_report = {
             "metadata": self.workbook_metadata,
-            "sheets": []
+            "sheets": {}
         }
         
-        # Step 2: Iterate through sheets
         try:
             excel_file = pd.ExcelFile(self.file_path)
             for sheet_name in excel_file.sheet_names:
-                sheet_data = self.detect_sheet_level_quality(sheet_name)
-                workbook_report["sheets"].append(sheet_data)
+                df = pd.read_excel(self.file_path, sheet_name=sheet_name)
+                
+                if df.empty:
+                    workbook_report["sheets"][sheet_name] = {"summary": "Empty Sheet"}
+                    continue
+
+                # Use shared deep profiling logic for each sheet
+                column_profiles = self.perform_column_profiling(df)
+                
+                duplicate_count = int(df.duplicated().sum())
+                total_null_count = int(df.isnull().sum().sum())
+                
+                quality_score = self.calculate_overall_quality_score(
+                    total_null_count, df.shape[0], df.shape[1], duplicate_count
+                )
+
+                summary = AuditSummary(
+                    file_name=f"{os.path.basename(self.file_path)} [{sheet_name}]",
+                    abs_path=os.path.abspath(self.file_path),
+                    size_mb=self.workbook_metadata['size_mb'],
+                    last_modified=self.workbook_metadata['last_modified'],
+                    total_rows=df.shape[0],
+                    total_cols=df.shape[1],
+                    duplicate_rows=duplicate_count,
+                    total_nulls=total_null_count,
+                    quality_score=quality_score
+                )
+                
+                workbook_report["sheets"][sheet_name] = {
+                    "summary": summary,
+                    "columns": column_profiles
+                }
+                
         except Exception as e:
             self.logger.log_exception(self.file_path, "ExcelLoadError")
             raise ValueError(f"Failed to process Excel workbook: {e}")
             
         return workbook_report
 
-    def check_workspace_metadata(self):
-        """
-        Extracts basic file-level information for the workbook.
-        """
+    def check_workbook_metadata(self):
         stats = os.stat(self.file_path)
         last_mod = datetime.datetime.fromtimestamp(stats.st_mtime).strftime('%Y-%m-%d %H:%M:%S')
         
@@ -76,59 +97,29 @@ class ExcelQualityAudit:
             'abs_path': os.path.abspath(self.file_path)
         }
 
-    def detect_sheet_level_quality(self, sheet_name: str) -> ExcelSheetProfile:
-        """
-        Performs a deep audit on a single sheet.
-        Returns an ExcelSheetProfile model.
-        """
-        # Load the sheet
-        df = pd.read_excel(self.file_path, sheet_name=sheet_name)
-        
-        if df.empty:
-            return ExcelSheetProfile(sheet_name, 0, 0, [])
-
-        # Step 1: Quality Metrics (Nulls & Types)
-        quality_metrics = []
-        for col in df.columns:
-            null_count = int(df[col].isnull().sum())
-            quality_metrics.append({
-                'column': col,
-                'null_count': null_count,
-                'null_percentage': f"{(null_count/len(df))*100:.2f}%",
-                'type': str(df[col].dtype)
-            })
-
-        # Step 2: Statistical Summary for numeric columns
-        stats = df.describe().transpose().to_dict()
-
-        # Step 3: Placeholder Detection
-        placeholders = self.identify_placeholder_values(df)
-
-        return ExcelSheetProfile(
-            sheet_name=sheet_name,
-            total_rows=len(df),
-            total_cols=len(df.columns),
-            quality_metrics=quality_metrics,
-            statistical_summary=stats,
-            placeholders=placeholders
-        )
-
-    def identify_placeholder_values(self, df: pd.DataFrame) -> Dict[str, Dict[str, int]]:
-        """
-        Searches for dummy placeholders across all columns in a sheet.
-        """
-        placeholders = ['n/a', 'unknown', 'none', 'null', 'nan', '?', '999']
-        results = {}
-        
-        for col in df.columns:
-            # Normalize for comparison
-            sample = df[col].astype(str).str.lower().str.strip()
-            found_placeholders = {
-                p: int((sample == p).sum()) 
-                for p in placeholders 
-                if (sample == p).any()
-            }
-            if found_placeholders:
-                results[col] = found_placeholders
-                
-        return results
+    def export_report_to_excel(self, output_path: str):
+        report = self.execute_full_audit()
+        try:
+            with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
+                for sheet_name, data in report['sheets'].items():
+                    if isinstance(data, dict) and 'summary' in data and data['summary'] != "Empty Sheet":
+                        # Summary for this sheet
+                        summary_df = pd.DataFrame(list(data['summary'].to_dict().items()), columns=['Metric', 'Value'])
+                        summary_df.to_excel(writer, sheet_name=f"{sheet_name}_Summary", index=False)
+                        
+                        # Column Analysis for this sheet
+                        flattened = []
+                        for col in data['columns']:
+                            row = col.to_dict()
+                            stats = row.pop('stats', {})
+                            for k, v in stats.items(): row[f'stat_{k}'] = v
+                            row['placeholders_found'] = str(row['placeholders_found'])
+                            row['unique_values_sample'] = ", ".join([str(v) for v in row['unique_values_sample']])
+                            row['naming_issues'] = ", ".join(row['naming_issues'])
+                            row['top_values'] = " | ".join(row['top_values'])
+                            flattened.append(row)
+                        pd.DataFrame(flattened).to_excel(writer, sheet_name=f"{sheet_name}_Analysis", index=False)
+            return output_path
+        except Exception as e:
+            self.logger.log_exception(error_type="ExcelExportError")
+            raise e

@@ -1,0 +1,7 @@
+id,name,description
+1,Product A,This is a product description
+with multiple lines
+and no quotes.
+2,Product B,Single line description.
+3,Product C,Another description
+with two lines.

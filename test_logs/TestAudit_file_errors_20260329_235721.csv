@@ -1,2 +1,0 @@
-timestamp,level,file_path,file_type,error_type,error_message,row,column,invalid_value,context
-2026-03-29 23:57:21,ERROR,test_files/structural_issues.csv,CSV,Column Mismatch,"Expected 4 columns, found 3",3,,"[2, 'Bob', 25]",

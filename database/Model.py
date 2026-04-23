@@ -151,10 +151,15 @@ class DataModel:
         # Sync schema
         self._sync_schema(table_name, df)
         
-        # Insert
+        # Insert with explicit transaction
         print(f"  [Database] Appending {len(df)} processed rows to '{table_name}'")
-        with self._get_connection() as conn:
-            df.to_sql(table_name, conn, if_exists='append', index=False)
+        try:
+            with self._get_connection() as conn:
+                # SQLite with statement automatically commits or rolls back
+                df.to_sql(table_name, conn, if_exists='append', index=False)
+        except Exception as e:
+            print(f"  [Error] Failed to insert chunk: {e}")
+            raise e
 
     def read(self, table_name: str, query: str = None) -> pd.DataFrame:
         """
@@ -306,24 +311,22 @@ class DataModel:
         # Sync schema first to ensure PK column exists
         self._sync_schema(table_name, df)
         
-        if pk in df.columns:
-            pk_values = df[pk].dropna().unique().tolist()
-            if pk_values:
-                # Create a condition string
-                if all(isinstance(v, (int, float)) for v in pk_values):
-                    cond = f"[{pk}] IN ({', '.join(map(str, pk_values))})"
-                else:
-                    cond = f"[{pk}] IN ({', '.join([f'\'{v}\'' for v in pk_values])})"
-                
-                try:
-                    print(f"  [Database] Deleting {len(pk_values)} existing records for PK matching...")
-                    self.delete(table_name, cond)
-                except sqlite3.OperationalError:
-                    # Table might be empty or PK col might not exist in actual DB yet
-                    pass
-        
-        # Final insertion
+        # Final insertion with transaction
         df['updated_date'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         print(f"  [Database] Upserting {len(df)} rows to '{table_name}'")
-        with self._get_connection() as conn:
-            df.to_sql(table_name, conn, if_exists='append', index=False)
+        try:
+            with self._get_connection() as conn:
+                # Wrap delete and insert in a single transaction
+                if pk in df.columns:
+                    pk_values = df[pk].dropna().unique().tolist()
+                    if pk_values:
+                        if all(isinstance(v, (int, float)) for v in pk_values):
+                            cond = f"[{pk}] IN ({', '.join(map(str, pk_values))})"
+                        else:
+                            cond = f"[{pk}] IN ({', '.join([f'\'{v}\'' for v in pk_values])})"
+                        conn.execute(f"DELETE FROM {table_name} WHERE {cond}")
+                
+                df.to_sql(table_name, conn, if_exists='append', index=False)
+        except Exception as e:
+            print(f"  [Error] Failed to upsert chunk: {e}")
+            raise e
