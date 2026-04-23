@@ -20,21 +20,27 @@ def setup_test_data(base_path="test_data"):
     csv_path = os.path.join(base_path, "test_sample.csv")
     excel_path = os.path.join(base_path, "test_sample.xlsx")
 
-    # 1. Nested JSON with lists
-    json_data = [
-        {
-            "user_id": 1,
-            "name": "Alice",
-            "metadata": {"role": "admin", "tags": ["verified", "top-user"]},
-            "content": [{"id": 101, "text": "Hello"}, {"id": 102, "text": "World"}]
-        },
-        {
-            "user_id": 2,
-            "name": "Bob",
-            "metadata": {"role": "editor"},
-            "content": [{"id": 201, "text": "Foo"}]
-        }
-    ]
+    # 1. Nested JSON with lists (40 rows + extreme nesting)
+    json_data = []
+    # Add extreme nesting cases first
+    json_data.append({
+        "user_id": 999,
+        "name": "SuperNested",
+        # List inside a list inside a dict (all string encoded)
+        "metadata": '{"settings": {"notifications": [{"type": "email", "flags": ["urgent", "daily"]}, {"type": "sms"}]}}',
+        # Dict inside a list inside a list
+        "content": '[[{"id": 1, "data": {"key": {"val":2}}}, {"id": 2}]]'
+    })
+
+    for i in range(1, 40):
+        json_data.append({
+            "user_id": i,
+            "name": f"User_{i}",
+            # These are explicitly strings to test the auto-detection fix
+            "metadata": f'{{"role": "user_{i}", "active": true}}',
+            "content": f'[{{\"id\": {i}01, \"text\": \"Msg {i}\"}}]'
+        })
+    
     with open(json_path, "w") as f:
         json.dump(json_data, f, indent=4)
     
@@ -98,6 +104,24 @@ def run_tests():
     db.update("users_audit", {"name": "Grace Updated"}, "user_id = 7")
     db.delete("users_audit", "user_id = 1")
     print(f"Count after deleting user_id=1: {db.count('users_audit')}")
+
+    print("\n--- Testing New Extraction Formats (JSON, DF, Dict) ---")
+    # 1. Extract as DataFrame
+    df_extract = db.extract("users_audit", format="df")
+    print(f"Extraction (DF) type: {type(df_extract)}")
+    print(f"Extraction (DF) rows: {len(df_extract)}")
+    print(f"Extraction (DF) rows: \n{df_extract}")
+
+    # 2. Extract as JSON
+    json_extract = db.extract("users_audit", format="json")
+    print(f"Extraction (JSON) type: {type(json_extract)}")
+    print(f"Extraction (JSON) sample: \n{json_extract[:100]}")
+
+    # 3. Extract as Dict
+    dict_extract = db.extract("users_audit", format="dict")
+    print(f"Extraction (Dict) type: {type(dict_extract)}")
+    print(f"Extraction (Dict) first item: {dict_extract[0] if dict_extract else 'Empty'}")
+    print(f"Extraction (Dict) sample: \n{dict_extract[:5]}")
     
     print("\n--- Testing Management: Drop Table ---")
     db.create("temp_table", [{"a": 1}])

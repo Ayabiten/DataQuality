@@ -1,5 +1,6 @@
 import sqlite3
 import pandas as pd
+import json
 from datetime import datetime
 import os
 from typing import Union, List, Dict, Any, Optional
@@ -35,6 +36,22 @@ class DataModel:
             for col in df.columns:
                 # Check first non-null value for type
                 sample = df[col].dropna().iloc[0] if not df[col].dropna().empty else None
+                
+                # Auto-detect JSON strings and convert them
+                if isinstance(sample, str):
+                    s_stripped = sample.strip()
+                    if (s_stripped.startswith('{') and s_stripped.endswith('}')) or \
+                       (s_stripped.startswith('[') and s_stripped.endswith(']')):
+                        try:
+                            # Attempt to convert the column to objects
+                            print(f"  [Auto-Detect] Converting JSON string column: '{col}' to objects...")
+                            df[col] = df[col].apply(lambda x: json.loads(x) if isinstance(x, str) and x.strip() else x)
+                            # Re-fetch sample after conversion to check if it's now a dict or list
+                            sample = df[col].dropna().iloc[0] if not df[col].dropna().empty else None
+                        except:
+                            # If parsing fails for any row, we treat it as a normal string
+                            pass
+                
                 if isinstance(sample, (dict, list)):
                     complex_cols.append((col, type(sample)))
             
@@ -43,8 +60,10 @@ class DataModel:
             
             for col, col_type in complex_cols:
                 if col_type is list:
+                    print(f"  [Exploding] Column '{col}' (List) -> multiple rows")
                     df = df.explode(col)
                 elif col_type is dict:
+                    print(f"  [Flattening] Column '{col}' (Dict) -> multiple columns")
                     # Normalize the dict column
                     # We use json_normalize and then join it back
                     # To keep it simple and robust, we convert the column to a list of dicts
@@ -95,16 +114,35 @@ class DataModel:
             
             conn.commit()
 
-    def create(self, table_name: str, data: Union[pd.DataFrame, List[Dict], Dict]):
+    def create(self, table_name: str, data: Union[pd.DataFrame, List[Dict], Dict], chunk_size: int = 1000):
         """
         Creates/Inserts new records into the table.
+        Processes data in chunks to handle large datasets efficiently.
         """
         if isinstance(data, dict):
             data = [data]
         
-        df = pd.DataFrame(data) if not isinstance(data, pd.DataFrame) else data.copy()
+        total_rows = len(data)
+        processed_rows = 0
         
+        if isinstance(data, pd.DataFrame):
+            for i in range(0, total_rows, chunk_size):
+                chunk = data.iloc[i : i + chunk_size].copy()
+                self._insert_chunk(table_name, chunk)
+                processed_rows += len(chunk)
+        else:
+            # List of dicts
+            for i in range(0, total_rows, chunk_size):
+                chunk = data[i : i + chunk_size]
+                self._insert_chunk(table_name, pd.DataFrame(chunk))
+                processed_rows += len(chunk)
+            
+        print(f"Successfully processed {processed_rows} source records into {table_name} in chunks of {chunk_size}")
+
+    def _insert_chunk(self, table_name: str, df: pd.DataFrame):
+        """Helper to process and insert a single chunk of data."""
         # Flatten and explode
+        print(f"--- Processing Chunk of {len(df)} records ---")
         df = self.flatten_and_explode(df)
         
         # Add audit column
@@ -114,10 +152,9 @@ class DataModel:
         self._sync_schema(table_name, df)
         
         # Insert
+        print(f"  [Database] Appending {len(df)} processed rows to '{table_name}'")
         with self._get_connection() as conn:
             df.to_sql(table_name, conn, if_exists='append', index=False)
-            
-        print(f"Successfully inserted {len(df)} rows into {table_name}")
 
     def read(self, table_name: str, query: str = None) -> pd.DataFrame:
         """
@@ -134,6 +171,31 @@ class DataModel:
             if query:
                 sql += f" WHERE {query}"
             return pd.read_sql(sql, conn)
+
+    def extract(self, table_name: str, query: str = None, format: str = 'df') -> Any:
+        """
+        Extracts data from the database in various formats.
+        
+        Args:
+            table_name: Name of the table to extract.
+            query: Optional SQL WHERE clause (e.g., "id = 1").
+            format: Output format ('df'/'dataframe', 'json', 'dict'/'list').
+            
+        Returns:
+            The data in the requested format.
+        """
+        df = self.get_df(table_name, query)
+        
+        fmt = format.lower()
+        if fmt in ['df', 'dataframe']:
+            print("Columns: ",df.columns)
+            return df
+        elif fmt == 'json':
+            return df.to_json(orient='records')
+        elif fmt in ['dict', 'list']:
+            return df.to_dict(orient='records')
+        else:
+            raise ValueError(f"Format '{format}' is not supported. Use 'df', 'json', or 'dict'.")
 
     def list_tables(self) -> List[str]:
         """
@@ -213,20 +275,32 @@ class DataModel:
             conn.commit()
         print(f"Deleted records from {table_name} where {condition}")
 
-    def upsert(self, table_name: str, data: Union[pd.DataFrame, List[Dict], Dict], pk: str = "id"):
+    def upsert(self, table_name: str, data: Union[pd.DataFrame, List[Dict], Dict], pk: str = "id", chunk_size: int = 1000):
         """
         Inserts new records or updates existing ones based on a primary key.
-        Note: This is a simplified implementation for demonstration.
+        Processes data in chunks to handle large datasets efficiently.
         """
-        # For simplicity in this generic model, we'll implement upsert by:
-        # 1. Flattening the data
-        # 2. Deleting existing records with matching PK
-        # 3. Inserting the new records
-        
         if isinstance(data, dict):
             data = [data]
         
-        df = pd.DataFrame(data) if not isinstance(data, pd.DataFrame) else data.copy()
+        total_rows = len(data)
+        
+        if isinstance(data, pd.DataFrame):
+            for i in range(0, total_rows, chunk_size):
+                chunk = data.iloc[i : i + chunk_size].copy()
+                self._upsert_chunk(table_name, chunk, pk)
+        else:
+            # List of dicts
+            for i in range(0, total_rows, chunk_size):
+                chunk = data[i : i + chunk_size]
+                self._upsert_chunk(table_name, pd.DataFrame(chunk), pk)
+        
+        print(f"Successfully upserted {total_rows} source records into {table_name}")
+
+    def _upsert_chunk(self, table_name: str, df: pd.DataFrame, pk: str):
+        """Helper to process and upsert a single chunk of data."""
+        # We must flatten first to find the PK column if it's nested
+        print(f"--- Upserting Chunk of {len(df)} records ---")
         df = self.flatten_and_explode(df)
         
         # Sync schema first to ensure PK column exists
@@ -242,9 +316,14 @@ class DataModel:
                     cond = f"[{pk}] IN ({', '.join([f'\'{v}\'' for v in pk_values])})"
                 
                 try:
+                    print(f"  [Database] Deleting {len(pk_values)} existing records for PK matching...")
                     self.delete(table_name, cond)
                 except sqlite3.OperationalError:
                     # Table might be empty or PK col might not exist in actual DB yet
                     pass
         
-        self.create(table_name, df)
+        # Final insertion
+        df['updated_date'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        print(f"  [Database] Upserting {len(df)} rows to '{table_name}'")
+        with self._get_connection() as conn:
+            df.to_sql(table_name, conn, if_exists='append', index=False)
